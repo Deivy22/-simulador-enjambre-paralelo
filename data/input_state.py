@@ -24,3 +24,18 @@ class InputState:
     return_to_menu: bool = False
     quit_requested: bool = False
     start_action: StartAction = StartAction.NONE
+
+
+def resolve_mouse_action(
+    left_click: bool,
+    right_click: bool,
+    mouse_in_canvas: bool,
+) -> MouseAction:
+    """Resuelve la acción del cursor: ignora fuera del canvas y prioriza repulsor."""
+    if not mouse_in_canvas:
+        return MouseAction.NONE
+    if right_click:
+        return MouseAction.REPEL
+    if left_click:
+        return MouseAction.ATTRACT
+    return MouseAction.NONE
