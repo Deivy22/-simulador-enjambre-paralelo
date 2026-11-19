@@ -1,0 +1,34 @@
+# Python bytecode y cachés
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Empaquetado y distribución
+build/
+dist/
+*.egg-info/
+
+# IDEs y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Registro local de commits (no subir al repositorio público)
+01_asignacion_y_reglas.md
+02_diseno_del_simulador.md
+03_arquitectura.md
+04_estrategia_paralelismo.md
+05_roles_y_sprints.md
+06_prompts_y_commits.md
+commits_plan.md
+screen.png
+screen1.png
