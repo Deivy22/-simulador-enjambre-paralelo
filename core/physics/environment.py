@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.math_utils import ZERO_VEC
+from core.math_utils import ZERO_VEC, clamp_scalar
 from data.config import SimConfig
 from data.entities import Boid
 from data.types import Vec2
@@ -25,3 +25,23 @@ def compute_boundary_force(boid: Boid, config: SimConfig) -> Vec2:
     fy_bottom = -turn * ((boid.y - bottom_limit) * inv_margin) if boid.y > bottom_limit else 0.0
 
     return (fx_left + fx_right, fy_top + fy_bottom)
+
+
+def clamp_position_and_velocity(
+    pos: Vec2,
+    vel: Vec2,
+    config: SimConfig,
+) -> tuple[Vec2, Vec2]:
+    """Respaldo hard clamp en [0, world_width] × [0, world_height] sin fugas."""
+    max_x = float(config.world_width)
+    max_y = float(config.world_height)
+    px, py = pos
+    vx, vy = vel
+
+    clamped_x = clamp_scalar(px, 0.0, max_x)
+    clamped_y = clamp_scalar(py, 0.0, max_y)
+
+    new_vx = abs(vx) if px < 0.0 else (-abs(vx) if px > max_x else vx)
+    new_vy = abs(vy) if py < 0.0 else (-abs(vy) if py > max_y else vy)
+
+    return ((clamped_x, clamped_y), (new_vx, new_vy))
