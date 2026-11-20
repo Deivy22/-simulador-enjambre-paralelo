@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import math
+from typing import Final
 
 from data.types import Vec2
+
+ZERO_VEC: Final[Vec2] = (0.0, 0.0)
+NORM_EPSILON_SQ: Final[float] = 1e-8
 
 
 def vec_add(a: Vec2, b: Vec2) -> Vec2:
@@ -55,3 +59,42 @@ def dist_sq(a: Vec2, b: Vec2) -> float:
 def dist(a: Vec2, b: Vec2) -> float:
     """Retorna la distancia euclidiana entre dos puntos 2D."""
     return math.sqrt(dist_sq(a, b))
+
+
+def clamp_scalar(value: float, min_value: float, max_value: float) -> float:
+    """Acota un escalar al intervalo cerrado [min_value, max_value]."""
+    if value < min_value:
+        return min_value
+    if value > max_value:
+        return max_value
+    return value
+
+
+def vec_normalize(v: Vec2) -> Vec2:
+    """Normaliza un vector 2D; retorna (0.0, 0.0) si su norma es casi cero."""
+    mag_sq = v[0] * v[0] + v[1] * v[1]
+    if mag_sq < NORM_EPSILON_SQ:
+        return ZERO_VEC
+    inv_mag = 1.0 / math.sqrt(mag_sq)
+    return (v[0] * inv_mag, v[1] * inv_mag)
+
+
+def vec_unit_or_default(v: Vec2, default_dir: Vec2 = (1.0, 0.0)) -> Vec2:
+    """Retorna vector unitario de v, o la dirección unitaria de respaldo si ||v||≈0."""
+    unit = vec_normalize(v)
+    if unit != ZERO_VEC:
+        return unit
+    fallback = vec_normalize(default_dir)
+    return fallback if fallback != ZERO_VEC else (1.0, 0.0)
+
+
+def vec_limit(v: Vec2, max_mag: float) -> Vec2:
+    """Limita la magnitud de un vector 2D a max_mag sin alterar su dirección."""
+    if max_mag <= 0.0:
+        return ZERO_VEC
+    mag_sq = v[0] * v[0] + v[1] * v[1]
+    max_sq = max_mag * max_mag
+    if mag_sq <= max_sq:
+        return v
+    scale = max_mag / math.sqrt(mag_sq)
+    return (v[0] * scale, v[1] * scale)
