@@ -9,9 +9,16 @@ from data import (
     Boid,
     FlatBoidSnapshot,
     GameState,
+    InputState,
+    MetricsSnapshot,
+    MouseAction,
     ScreenMode,
     SimConfig,
     SimMode,
+    StartAction,
+    clamp_worker_count,
+    default_worker_count,
+    resolve_mouse_action,
     validate_config,
 )
 
@@ -73,3 +80,44 @@ def test_sim_config_is_frozen_and_validates_two_zone_geometry() -> None:
     invalid_speed = replace(config, min_speed=300.0, max_speed=200.0)
     with pytest.raises(ValueError):
         validate_config(invalid_speed)
+
+
+def test_input_state_is_frozen_and_mouse_precedence_rules() -> None:
+    inp = InputState(
+        mouse_pos=(250.0, 300.0),
+        mouse_in_canvas=True,
+        left_click=True,
+        right_click=True,
+        mouse_action=MouseAction.REPEL,
+        start_action=StartAction.NONE,
+    )
+    with pytest.raises(FrozenInstanceError):
+        inp.toggle_pause = True  # type: ignore[misc]
+
+    assert resolve_mouse_action(True, False, True) is MouseAction.ATTRACT
+    assert resolve_mouse_action(False, True, True) is MouseAction.REPEL
+    assert resolve_mouse_action(True, True, True) is MouseAction.REPEL
+    assert resolve_mouse_action(True, True, False) is MouseAction.NONE
+
+
+def test_metrics_snapshot_is_frozen_with_tuple_history() -> None:
+    metrics = MetricsSnapshot(
+        instant_fps=60.0,
+        average_fps=58.5,
+        physics_ms=8.2,
+        frame_ms=16.6,
+        fps_history=(60.0, 57.0),
+        cpu_count=8,
+        active_workers=7,
+    )
+    assert isinstance(metrics.fps_history, tuple)
+    with pytest.raises(FrozenInstanceError):
+        metrics.physics_ms = 1.0  # type: ignore[misc]
+
+
+def test_worker_count_helpers_respect_hardware_bounds() -> None:
+    assert default_worker_count(1) == 1
+    assert default_worker_count(8) == 7
+    assert clamp_worker_count(0, cpu_count=8) == 1
+    assert clamp_worker_count(12, cpu_count=8) == 8
+    assert clamp_worker_count(4, cpu_count=8) == 4
