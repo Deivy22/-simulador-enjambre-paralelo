@@ -98,3 +98,28 @@ def vec_limit(v: Vec2, max_mag: float) -> Vec2:
         return v
     scale = max_mag / math.sqrt(mag_sq)
     return (v[0] * scale, v[1] * scale)
+
+
+def clamp_speed(
+    velocity: Vec2,
+    min_speed: float,
+    max_speed: float,
+    fallback_dir: Vec2 = (1.0, 0.0),
+) -> Vec2:
+    """Acota la velocidad al rango [min_speed, max_speed] protegiendo norma cero."""
+    speed_sq = velocity[0] * velocity[0] + velocity[1] * velocity[1]
+    if speed_sq < NORM_EPSILON_SQ:
+        unit_dir = vec_unit_or_default(fallback_dir)
+        return (unit_dir[0] * min_speed, unit_dir[1] * min_speed)
+
+    min_sq = min_speed * min_speed
+    if speed_sq < min_sq:
+        scale = min_speed / math.sqrt(speed_sq)
+        return (velocity[0] * scale, velocity[1] * scale)
+
+    max_sq = max_speed * max_speed
+    if speed_sq > max_sq:
+        scale = max_speed / math.sqrt(speed_sq)
+        return (velocity[0] * scale, velocity[1] * scale)
+
+    return velocity
