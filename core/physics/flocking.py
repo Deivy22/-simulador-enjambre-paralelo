@@ -37,3 +37,29 @@ def compute_separation(
     )
 
 
+def compute_alignment(
+    boid: Boid,
+    neighbors: tuple[Boid, ...],
+    config: SimConfig,
+) -> Vec2:
+    """Calcula la fuerza pura de Alineación respecto a vecinos en perception_radius."""
+    perc_r_sq = config.perception_radius * config.perception_radius
+    bx = boid.x
+    by = boid.y
+
+    in_range = tuple(
+        other
+        for other in neighbors
+        if other is not boid
+        and ((bx - other.x) ** 2 + (by - other.y) ** 2) < perc_r_sq
+    )
+    count = len(in_range)
+    if count == 0:
+        return ZERO_VEC
+
+    inv_count = 1.0 / count
+    avg_vx = sum(other.vx for other in in_range) * inv_count
+    avg_vy = sum(other.vy for other in in_range) * inv_count
+    return (avg_vx - boid.vx, avg_vy - boid.vy)
+
+
