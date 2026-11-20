@@ -1,11 +1,14 @@
-"""Fuerza ambiental pura de límites suaves para el Canvas."""
+"""Fuerzas ambientales puras: límites suaves de pantalla e interacción del cursor."""
 
 from __future__ import annotations
+
+import math
 
 from core.math_utils import ZERO_VEC, clamp_scalar
 from data.config import SimConfig
 from data.entities import Boid
-from data.types import Vec2
+from data.input_state import InputState, resolve_mouse_action
+from data.types import MouseAction, Vec2
 
 
 def compute_boundary_force(boid: Boid, config: SimConfig) -> Vec2:
@@ -45,3 +48,40 @@ def clamp_position_and_velocity(
     new_vy = abs(vy) if py < 0.0 else (-abs(vy) if py > max_y else vy)
 
     return ((clamped_x, clamped_y), (new_vx, new_vy))
+
+
+def compute_mouse_force(
+    boid: Boid,
+    input_state: InputState,
+    config: SimConfig,
+) -> Vec2:
+    """Calcula la fuerza progresiva del cursor (prioridad repulsor, solo en canvas)."""
+    if not input_state.mouse_in_canvas:
+        return ZERO_VEC
+
+    action = (
+        input_state.mouse_action
+        if input_state.mouse_action is not MouseAction.NONE
+        else resolve_mouse_action(
+            input_state.left_click,
+            input_state.right_click,
+            input_state.mouse_in_canvas,
+        )
+    )
+    if action is MouseAction.NONE:
+        return ZERO_VEC
+
+    dx = input_state.mouse_pos[0] - boid.x
+    dy = input_state.mouse_pos[1] - boid.y
+    d_sq = dx * dx + dy * dy
+    mouse_r = config.mouse_radius
+    eps_sq = config.separation_epsilon * config.separation_epsilon
+
+    if d_sq <= eps_sq or d_sq >= mouse_r * mouse_r:
+        return ZERO_VEC
+
+    distance = math.sqrt(d_sq)
+    sign = 1.0 if action is MouseAction.ATTRACT else -1.0
+    falloff = 1.0 - (distance / mouse_r)
+    magnitude = sign * falloff * config.mouse_strength / distance
+    return (dx * magnitude, dy * magnitude)
