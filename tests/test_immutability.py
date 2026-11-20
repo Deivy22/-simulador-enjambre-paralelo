@@ -5,7 +5,15 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError, replace
 import pytest
 
-from data import Boid, FlatBoidSnapshot, GameState, ScreenMode, SimMode
+from data import (
+    Boid,
+    FlatBoidSnapshot,
+    GameState,
+    ScreenMode,
+    SimConfig,
+    SimMode,
+    validate_config,
+)
 
 
 def test_boid_is_frozen_and_uses_slots() -> None:
@@ -45,3 +53,23 @@ def test_game_state_is_frozen_and_replace_returns_new_instance() -> None:
     assert state.frame == 0
     assert next_state.screen is ScreenMode.SIMULATION
     assert next_state.frame == 1
+
+
+def test_sim_config_is_frozen_and_validates_two_zone_geometry() -> None:
+    config = validate_config(SimConfig())
+    assert config.window_width == 1280
+    assert config.window_height == 720
+    assert config.world_width == 960
+    assert config.panel_width == 320
+    assert config.world_width + config.panel_width == config.window_width
+
+    with pytest.raises(FrozenInstanceError):
+        config.entity_count = 3000  # type: ignore[misc]
+
+    invalid_geometry = replace(config, panel_width=200)
+    with pytest.raises(ValueError):
+        validate_config(invalid_geometry)
+
+    invalid_speed = replace(config, min_speed=300.0, max_speed=200.0)
+    with pytest.raises(ValueError):
+        validate_config(invalid_speed)
