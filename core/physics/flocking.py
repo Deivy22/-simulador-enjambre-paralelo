@@ -63,3 +63,35 @@ def compute_alignment(
     return (avg_vx - boid.vx, avg_vy - boid.vy)
 
 
+def compute_flocking_forces(
+    boid: Boid,
+    neighbors: tuple[Boid, ...],
+    config: SimConfig,
+) -> tuple[Vec2, Vec2, Vec2]:
+    """Evalúa Separación, Alineación y Cohesión en un único filtrado de vecinos."""
+    perc_r_sq = config.perception_radius * config.perception_radius
+    bx = boid.x
+    by = boid.y
+
+    perceived = tuple(
+        other
+        for other in neighbors
+        if other is not boid
+        and ((bx - other.x) ** 2 + (by - other.y) ** 2) < perc_r_sq
+    )
+    if not perceived:
+        return (ZERO_VEC, ZERO_VEC, ZERO_VEC)
+
+    sep_force = compute_separation(boid, perceived, config)
+    inv_count = 1.0 / len(perceived)
+    ali_force = (
+        sum(other.vx for other in perceived) * inv_count - boid.vx,
+        sum(other.vy for other in perceived) * inv_count - boid.vy,
+    )
+    coh_force = (
+        sum(other.x for other in perceived) * inv_count - bx,
+        sum(other.y for other in perceived) * inv_count - by,
+    )
+    return (sep_force, ali_force, coh_force)
+
+
