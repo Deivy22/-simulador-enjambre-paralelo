@@ -1,4 +1,4 @@
-"""Reglas físicas puras del enjambre."""
+"""Reglas físicas puras de enjambre (Separación, Alineación y Cohesión)."""
 
 from __future__ import annotations
 
@@ -63,6 +63,32 @@ def compute_alignment(
     return (avg_vx - boid.vx, avg_vy - boid.vy)
 
 
+def compute_cohesion(
+    boid: Boid,
+    neighbors: tuple[Boid, ...],
+    config: SimConfig,
+) -> Vec2:
+    """Calcula la fuerza pura de Cohesión hacia el centro de masa local."""
+    perc_r_sq = config.perception_radius * config.perception_radius
+    bx = boid.x
+    by = boid.y
+
+    in_range = tuple(
+        other
+        for other in neighbors
+        if other is not boid
+        and ((bx - other.x) ** 2 + (by - other.y) ** 2) < perc_r_sq
+    )
+    count = len(in_range)
+    if count == 0:
+        return ZERO_VEC
+
+    inv_count = 1.0 / count
+    avg_x = sum(other.x for other in in_range) * inv_count
+    avg_y = sum(other.y for other in in_range) * inv_count
+    return (avg_x - bx, avg_y - by)
+
+
 def compute_flocking_forces(
     boid: Boid,
     neighbors: tuple[Boid, ...],
@@ -93,5 +119,3 @@ def compute_flocking_forces(
         sum(other.y for other in perceived) * inv_count - by,
     )
     return (sep_force, ali_force, coh_force)
-
-
