@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from core.engine.spatial_grid import build_spatial_grid
 from core.parallel.ipc_codec import pack_boids_to_snapshot
 from core.parallel.partition import compute_chunk_ranges
@@ -9,6 +11,7 @@ from core.parallel.worker import WorkerTask
 from data.config import SimConfig
 from data.entities import Boid
 from data.input_state import InputState
+from data.types import FlatBoidTuple
 
 
 def build_worker_tasks(
@@ -45,4 +48,15 @@ def build_worker_tasks(
             dt=dt,
         )
         for chunk_range in ranges
+    )
+
+
+def consolidate_chunk_results(
+    chunk_results: Sequence[tuple[FlatBoidTuple, ...]],
+) -> tuple[Boid, ...]:
+    """Consolida en orden exacto los segmentos en una tupla inmutable de Boid."""
+    return tuple(
+        Boid(x=x, y=y, vx=vx, vy=vy)
+        for segment in chunk_results
+        for x, y, vx, vy in segment
     )
