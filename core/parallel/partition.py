@@ -26,3 +26,30 @@ def normalize_worker_count(workers: int, cpu_count: int | None = None) -> int:
     return clamp_worker_count(workers, cpu_count=total)
 
 
+def compute_chunk_ranges(
+    total_items: int,
+    workers: int,
+    chunks_per_worker: int = 1,
+) -> tuple[ChunkRange, ...]:
+    """Divide [0, total_items) en segmentos balanceados sin solapamientos ni pérdidas."""
+    if total_items < 0:
+        raise ValueError("total_items no puede ser negativo.")
+    if workers <= 0:
+        raise ValueError("workers debe ser mayor que cero.")
+    if chunks_per_worker <= 0:
+        raise ValueError("chunks_per_worker debe ser mayor que cero.")
+    if total_items == 0:
+        return ()
+
+    chunk_count = min(total_items, workers * chunks_per_worker)
+    base_size, remainder = divmod(total_items, chunk_count)
+
+    return tuple(
+        (
+            idx * base_size + (idx if idx < remainder else remainder),
+            (idx + 1) * base_size + ((idx + 1) if (idx + 1) < remainder else remainder),
+        )
+        for idx in range(chunk_count)
+    )
+
+
