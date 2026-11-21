@@ -1,10 +1,16 @@
-"""Pruebas unitarias de utilidades matemáticas puras 2D en core/math_utils.py."""
+"""Pruebas unitarias de utilidades matemáticas, física pura, grilla espacial y motor secuencial."""
 
 from __future__ import annotations
 
 import math
 import pytest
 
+from core.engine import (
+    build_spatial_grid,
+    query_neighbor_indices,
+    step_boids_sequential,
+    update_sequential,
+)
 from core.math_utils import (
     ZERO_VEC,
     clamp_scalar,
@@ -28,9 +34,11 @@ from core.physics import (
     compute_boundary_force,
     compute_cohesion,
     compute_flocking_forces,
+    compute_mouse_force,
     compute_separation,
 )
-from data import Boid, SimConfig
+from core.state import create_initial_state, spawn_boids
+from data import Boid, InputState, MouseAction, ScreenMode, SimConfig, SimMode
 
 
 def test_vector_arithmetic_is_pure() -> None:
@@ -149,3 +157,97 @@ def test_soft_boundaries_and_hard_clamp() -> None:
     pos, vel = clamp_position_and_velocity((-5.0, 750.0), (-120.0, 80.0), cfg)
     assert pos == (0.0, float(cfg.world_height))
     assert vel == (120.0, -80.0)
+
+
+def test_mouse_force_attraction_repulsion_precedence_and_canvas_clip() -> None:
+    cfg = SimConfig()
+    b = Boid(x=200.0, y=200.0, vx=100.0, vy=0.0)
+
+    attract_inp = InputState(
+        mouse_pos=(275.0, 200.0),
+        mouse_in_canvas=True,
+        left_click=True,
+        mouse_action=MouseAction.ATTRACT,
+    )
+    afx, afy = compute_mouse_force(b, attract_inp, cfg)
+    assert afx == pytest.approx(0.5 * cfg.mouse_strength)
+    assert afy == pytest.approx(0.0)
+
+    repel_inp = InputState(
+        mouse_pos=(275.0, 200.0),
+        mouse_in_canvas=True,
+        left_click=True,
+        right_click=True,
+        mouse_action=MouseAction.NONE,
+    )
+    rfx, rfy = compute_mouse_force(b, repel_inp, cfg)
+    assert rfx == pytest.approx(-0.5 * cfg.mouse_strength)
+    assert rfy == pytest.approx(0.0)
+
+    outside_canvas = InputState(
+        mouse_pos=(1100.0, 200.0),
+        mouse_in_canvas=False,
+        left_click=True,
+        mouse_action=MouseAction.ATTRACT,
+    )
+    assert compute_mouse_force(b, outside_canvas, cfg) == ZERO_VEC
+
+
+def test_spatial_grid_matches_exact_bruteforce_neighborhood() -> None:
+    cfg = SimConfig(entity_count=120)
+    boids = spawn_boids(cfg.entity_count, cfg, seed=123)
+    grid = build_spatial_grid(boids, cfg.world_width, cfg.world_height, cfg.perception_radius)
+    perc_r_sq = cfg.perception_radius ** 2
+
+    for idx, b in enumerate(boids):
+        brute = {
+            j
+            for j, other in enumerate(boids)
+            if j != idx and dist_sq((b.x, b.y), (other.x, other.y)) < perc_r_sq
+        }
+        grid_candidates = query_neighbor_indices(grid, b.x, b.y, exclude_index=idx)
+        grid_filtered = {
+            j
+            for j in grid_candidates
+            if dist_sq((b.x, b.y), (boids[j].x, boids[j].y)) < perc_r_sq
+        }
+        assert grid_filtered == brute
+
+
+def test_update_sequential_moves_boids_preserves_invariants_and_is_deterministic() -> None:
+    cfg = SimConfig(entity_count=80)
+    state_a = create_initial_state(
+        config=cfg,
+        seed=99,
+        screen=ScreenMode.SIMULATION,
+        mode=SimMode.SEQUENTIAL,
+    )
+    state_b = create_initial_state(
+        config=cfg,
+        seed=99,
+        screen=ScreenMode.SIMULATION,
+        mode=SimMode.SEQUENTIAL,
+    )
+    snapshot_before = state_a.boids
+    idle_input = InputState()
+
+    next_a = update_sequential(state_a, idle_input, dt=cfg.fixed_dt)
+    next_b = update_sequential(state_b, idle_input, dt=cfg.fixed_dt)
+
+    # El estado anterior no se muta
+    assert state_a.frame == 0
+    assert state_a.boids == snapshot_before
+    # El nuevo estado avanza y es determinista
+    assert next_a.frame == 1
+    assert next_a.boids == next_b.boids
+    assert next_a.boids != snapshot_before
+
+    for boid in next_a.boids:
+        speed = math.hypot(boid.vx, boid.vy)
+        assert cfg.min_speed - 1e-6 <= speed <= cfg.max_speed + 1e-6
+        assert 0.0 <= boid.x <= cfg.world_width
+        assert 0.0 <= boid.y <= cfg.world_height
+
+    # Paso puro directo coincide con update_sequential
+    direct_boids = step_boids_sequential(state_a.boids, idle_input, cfg, cfg.fixed_dt)
+    assert direct_boids == next_a.boids
