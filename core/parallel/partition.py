@@ -53,3 +53,15 @@ def compute_chunk_ranges(
     )
 
 
+def verify_chunk_partition(ranges: tuple[ChunkRange, ...], total_items: int) -> bool:
+    """Comprueba puramente que los chunks cubran exactamente [0, total_items)."""
+    if total_items == 0:
+        return ranges == ()
+    if not ranges:
+        return False
+    if ranges[0][0] != 0 or ranges[-1][1] != total_items:
+        return False
+    return all(
+        start < end and (idx == 0 or ranges[idx - 1][1] == start)
+        for idx, (start, end) in enumerate(ranges)
+    )
