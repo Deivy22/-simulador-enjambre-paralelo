@@ -10,6 +10,14 @@ from core.parallel.partition import (
     recommended_worker_count,
     verify_chunk_partition,
 )
+from core.parallel.ipc_codec import (
+    pack_boids_to_flat_tuples,
+    pack_boids_to_snapshot,
+    unpack_flat_tuples_to_boids,
+    unpack_snapshot_to_boids,
+)
+from core.state import spawn_boids
+from data import SimConfig
 
 
 def test_partition_covers_all_indices_balanced_without_gaps_or_overlaps() -> None:
@@ -36,3 +44,15 @@ def test_partition_covers_all_indices_balanced_without_gaps_or_overlaps() -> Non
         compute_chunk_ranges(-1, workers=2)
     with pytest.raises(ValueError):
         compute_chunk_ranges(10, workers=0)
+
+
+def test_ipc_codec_roundtrip_preserves_exact_boids_immutably() -> None:
+    cfg = SimConfig(entity_count=40)
+    boids = spawn_boids(cfg.entity_count, cfg, seed=11)
+
+    flat = pack_boids_to_flat_tuples(boids)
+    assert isinstance(flat, tuple)
+    assert unpack_flat_tuples_to_boids(flat) == boids
+
+    snapshot = pack_boids_to_snapshot(boids)
+    assert unpack_snapshot_to_boids(snapshot) == boids
