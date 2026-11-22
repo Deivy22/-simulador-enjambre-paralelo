@@ -4,29 +4,26 @@ from __future__ import annotations
 
 import pytest
 
-from core.engine import update_sequential
-from core.engine.spatial_grid import build_spatial_grid, query_neighbors
-from core.parallel.ipc_codec import (
-    buffer_as_readonly_views,
-    pack_boids_to_buffer,
-    unpack_buffer_to_boids,
-)
+from core.engine import build_spatial_grid, query_neighbors, update_sequential
 from core.parallel import (
     PoolHandle,
+    buffer_as_readonly_views,
     close_pool_handle,
     compute_chunk_ranges,
     detect_cpu_cores,
     ensure_pool_workers,
     managed_worker_pool,
+    pack_boids_to_buffer,
     pack_boids_to_flat_tuples,
     pack_boids_to_snapshot,
     recommended_worker_count,
+    unpack_buffer_to_boids,
     unpack_flat_tuples_to_boids,
     unpack_snapshot_to_boids,
     update_parallel,
     verify_chunk_partition,
 )
-from core.physics.integrator import integrate_boid, integrate_boid_from_flat
+from core.physics import integrate_boid, integrate_boid_from_flat
 from core.state import create_initial_state, spawn_boids
 from data import InputState, MouseAction, ScreenMode, SimConfig, SimMode
 

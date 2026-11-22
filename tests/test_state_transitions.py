@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import replace
 
 from core.engine import update_sequential
-from core.state import apply_input_transitions, create_initial_state
-from core.state.metrics_calc import (
+from core.state import (
+    apply_input_transitions,
     clamp_interactive_dt,
+    create_initial_state,
     measure_execution_ms,
     update_metrics_snapshot,
 )
