@@ -6,7 +6,12 @@ from dataclasses import replace
 
 from core.engine import update_sequential
 from core.state import apply_input_transitions, create_initial_state
-from data import InputState, ScreenMode, SimConfig, SimMode, StartAction
+from core.state.metrics_calc import (
+    clamp_interactive_dt,
+    measure_execution_ms,
+    update_metrics_snapshot,
+)
+from data import InputState, MetricsSnapshot, ScreenMode, SimConfig, SimMode, StartAction
 
 
 def test_start_screen_selections_and_transition_to_simulation() -> None:
@@ -83,3 +88,27 @@ def test_simulation_controls_mode_workers_pause_entities_reset_and_menu() -> Non
     assert back_menu.screen is ScreenMode.START
     assert back_menu.boids == ()
     assert back_menu.frame == 0
+
+
+def test_metrics_calc_rolling_window_dt_clamp_and_timer() -> None:
+    cfg = SimConfig()
+    assert clamp_interactive_dt(-0.1, cfg) == 0.0
+    assert clamp_interactive_dt(0.016, cfg) == 0.016
+    assert clamp_interactive_dt(0.5, cfg) == cfg.max_dt
+
+    m0 = MetricsSnapshot(cpu_count=8, active_workers=7)
+    m1 = update_metrics_snapshot(m0, physics_ms=5.0, frame_ms=20.0, window_size=3)
+    m2 = update_metrics_snapshot(m1, physics_ms=4.0, frame_ms=10.0, window_size=3)
+    m3 = update_metrics_snapshot(m2, physics_ms=6.0, frame_ms=25.0, window_size=3)
+    m4 = update_metrics_snapshot(m3, physics_ms=5.0, frame_ms=20.0, window_size=3)
+
+    assert m0.fps_history == ()
+    assert len(m4.fps_history) == 3
+    assert isinstance(m4.fps_history, tuple)
+    # Últimos 3 frames: 100 FPS, 40 FPS, 50 FPS -> promedio = 63.333...
+    assert m4.instant_fps == 50.0
+    assert abs(m4.average_fps - ((100.0 + 40.0 + 50.0) / 3.0)) < 1e-9
+
+    res, elapsed_ms = measure_execution_ms(lambda a, b: a + b, 2, 3)
+    assert res == 5
+    assert elapsed_ms >= 0.0
