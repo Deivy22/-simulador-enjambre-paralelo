@@ -16,6 +16,11 @@ from core.parallel.ipc_codec import (
     unpack_flat_tuples_to_boids,
     unpack_snapshot_to_boids,
 )
+from core.parallel.pool_lifecycle import (
+    PoolHandle,
+    close_pool_handle,
+    ensure_pool_workers,
+)
 from core.state import spawn_boids
 from data import SimConfig
 
@@ -56,3 +61,30 @@ def test_ipc_codec_roundtrip_preserves_exact_boids_immutably() -> None:
 
     snapshot = pack_boids_to_snapshot(boids)
     assert unpack_snapshot_to_boids(snapshot) == boids
+
+
+def test_pool_lifecycle_reuse_resize_and_clean_close() -> None:
+    handle = PoolHandle(pool=None, workers=1)
+
+    inactive = ensure_pool_workers(handle, desired_workers=2, active=False, cpu_count=4)
+    assert inactive.pool is None
+
+    active_2 = ensure_pool_workers(inactive, desired_workers=2, active=True, cpu_count=4)
+    try:
+        assert active_2.pool is not None
+        assert active_2.workers == 2
+
+        reused = ensure_pool_workers(active_2, desired_workers=2, active=True, cpu_count=4)
+        assert reused.pool is active_2.pool
+
+        resized = ensure_pool_workers(reused, desired_workers=3, active=True, cpu_count=4)
+        active_2 = resized
+        assert resized.pool is not None
+        assert resized.workers == 3
+
+        closed = ensure_pool_workers(resized, desired_workers=3, active=False, cpu_count=4)
+        active_2 = closed
+        assert closed.pool is None
+        assert close_pool_handle(closed).pool is None
+    finally:
+        close_pool_handle(active_2)
