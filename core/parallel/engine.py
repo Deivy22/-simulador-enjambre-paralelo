@@ -6,8 +6,8 @@ from collections.abc import Sequence
 from dataclasses import replace
 from multiprocessing.pool import Pool
 
-from core.engine.spatial_grid import build_spatial_grid
-from core.parallel.ipc_codec import pack_boids_to_snapshot
+from core.engine.spatial_grid import build_spatial_grid_from_coords
+from core.parallel.ipc_codec import buffer_as_readonly_views, pack_boids_to_buffer
 from core.parallel.partition import compute_chunk_ranges
 from core.parallel.worker import WorkerTask, process_boid_chunk
 from core.state.transitions import apply_input_transitions
@@ -26,17 +26,19 @@ def build_worker_tasks(
     workers: int,
     chunks_per_worker: int = 1,
 ) -> tuple[WorkerTask, ...]:
-    """Fase 1: construye la Grilla Espacial Inmutable, empaqueta snapshot y segmenta chunks."""
+    """Fase 1: empaqueta buffer binario compacto, construye Grilla Espacial y segmenta chunks."""
     if not boids:
         return ()
 
-    grid = build_spatial_grid(
-        boids=boids,
+    packed_buffer = pack_boids_to_buffer(boids)
+    xs_view, ys_view, _, _ = buffer_as_readonly_views(packed_buffer)
+    grid = build_spatial_grid_from_coords(
+        xs=xs_view,
+        ys=ys_view,
         world_width=config.world_width,
         world_height=config.world_height,
         cell_size=config.perception_radius,
     )
-    snapshot = pack_boids_to_snapshot(boids)
     ranges = compute_chunk_ranges(
         total_items=len(boids),
         workers=workers,
@@ -45,7 +47,7 @@ def build_worker_tasks(
     return tuple(
         WorkerTask(
             chunk_range=chunk_range,
-            snapshot=snapshot,
+            buffer=packed_buffer,
             grid=grid,
             input_state=input_state,
             config=config,
