@@ -5,6 +5,12 @@ from __future__ import annotations
 import pytest
 
 from core.engine import update_sequential
+from core.engine.spatial_grid import build_spatial_grid, query_neighbors
+from core.parallel.ipc_codec import (
+    buffer_as_readonly_views,
+    pack_boids_to_buffer,
+    unpack_buffer_to_boids,
+)
 from core.parallel import (
     PoolHandle,
     close_pool_handle,
@@ -20,6 +26,7 @@ from core.parallel import (
     update_parallel,
     verify_chunk_partition,
 )
+from core.physics.integrator import integrate_boid, integrate_boid_from_flat
 from core.state import create_initial_state, spawn_boids
 from data import InputState, MouseAction, ScreenMode, SimConfig, SimMode
 
@@ -63,6 +70,49 @@ def test_ipc_codec_roundtrip_preserves_exact_boids_immutably() -> None:
 
     snapshot = pack_boids_to_snapshot(boids)
     assert unpack_snapshot_to_boids(snapshot) == boids
+
+    buf = pack_boids_to_buffer(boids)
+    assert unpack_buffer_to_boids(buf) == boids
+    xs_v, ys_v, vxs_v, vys_v = buffer_as_readonly_views(buf)
+    assert xs_v.readonly and ys_v.readonly and vxs_v.readonly and vys_v.readonly
+    with pytest.raises(TypeError):
+        xs_v[0] = 999.0  # type: ignore[index]
+
+
+def test_optimized_flat_integrator_matches_reference_integrate_boid() -> None:
+    cfg = SimConfig(entity_count=60)
+    boids = spawn_boids(cfg.entity_count, cfg, seed=77)
+    grid = build_spatial_grid(boids, cfg.world_width, cfg.world_height, cfg.perception_radius)
+    buf = pack_boids_to_buffer(boids)
+    xs, ys, vxs, vys = buffer_as_readonly_views(buf)
+    inp = InputState(
+        mouse_pos=(350.0, 280.0),
+        mouse_in_canvas=True,
+        left_click=True,
+        mouse_action=MouseAction.ATTRACT,
+    )
+    inv_cell = 1.0 / grid.cell_size
+
+    for idx, boid in enumerate(boids):
+        ref = integrate_boid(boid, query_neighbors(boids, grid, idx), inp, cfg, cfg.fixed_dt)
+        opt = integrate_boid_from_flat(
+            idx=idx,
+            xs=xs,
+            ys=ys,
+            vxs=vxs,
+            vys=vys,
+            cells=grid.cells,
+            cols=grid.cols,
+            rows=grid.rows,
+            inv_cell_size=inv_cell,
+            input_state=inp,
+            config=cfg,
+            dt=cfg.fixed_dt,
+        )
+        assert opt[0] == pytest.approx(ref.x, abs=1e-9)
+        assert opt[1] == pytest.approx(ref.y, abs=1e-9)
+        assert opt[2] == pytest.approx(ref.vx, abs=1e-9)
+        assert opt[3] == pytest.approx(ref.vy, abs=1e-9)
 
 
 def test_pool_lifecycle_reuse_resize_and_clean_close() -> None:
