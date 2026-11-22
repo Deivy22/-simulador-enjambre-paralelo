@@ -2,10 +2,23 @@
 
 from __future__ import annotations
 
+from array import array
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from data.entities import Boid, FlatBoidSnapshot
 from data.types import FlatBoidTuple
+
+
+@dataclass(frozen=True, slots=True)
+class PackedBoidBuffer:
+    """Buffer binario inmutable de flotantes IEEE-754 para serialización IPC."""
+
+    xs_bytes: bytes
+    ys_bytes: bytes
+    vxs_bytes: bytes
+    vys_bytes: bytes
+    count: int
 
 
 def pack_boids_to_flat_tuples(boids: tuple[Boid, ...]) -> tuple[FlatBoidTuple, ...]:
@@ -35,4 +48,15 @@ def unpack_snapshot_to_boids(snapshot: FlatBoidSnapshot) -> tuple[Boid, ...]:
     return tuple(
         Boid(x=x, y=y, vx=vx, vy=vy)
         for x, y, vx, vy in zip(snapshot.xs, snapshot.ys, snapshot.vxs, snapshot.vys)
+    )
+
+
+def pack_boids_to_buffer(boids: tuple[Boid, ...]) -> PackedBoidBuffer:
+    """Empaqueta Boids en cuatro bloques contiguos e inmutables de bytes."""
+    return PackedBoidBuffer(
+        xs_bytes=array("d", (b.x for b in boids)).tobytes(),
+        ys_bytes=array("d", (b.y for b in boids)).tobytes(),
+        vxs_bytes=array("d", (b.vx for b in boids)).tobytes(),
+        vys_bytes=array("d", (b.vy for b in boids)).tobytes(),
+        count=len(boids),
     )
