@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import groupby
 import math
@@ -45,6 +46,59 @@ def cell_coords(
     return (clamped_cx, clamped_cy)
 
 
+def _cell_id_for_xy(
+    x: float,
+    y: float,
+    inv_cell_size: float,
+    cols: int,
+    max_col: int,
+    max_row: int,
+) -> int:
+    """Calcula el índice plano de celda en una sola operación."""
+    cx = int(x * inv_cell_size)
+    cy = int(y * inv_cell_size)
+    if cx < 0:
+        cx = 0
+    elif cx > max_col:
+        cx = max_col
+    if cy < 0:
+        cy = 0
+    elif cy > max_row:
+        cy = max_row
+    return cy * cols + cx
+
+
+def build_spatial_grid_from_coords(
+    xs: Sequence[float] | memoryview,
+    ys: Sequence[float] | memoryview,
+    world_width: int,
+    world_height: int,
+    cell_size: float,
+) -> SpatialGridIndex:
+    """Construye la grilla espacial inmutable desde secuencias planas de coordenadas."""
+    cols, rows = grid_dimensions(world_width, world_height, cell_size)
+    total_cells = cols * rows
+    inv_cell_size = 1.0 / cell_size
+    max_col = cols - 1
+    max_row = rows - 1
+    count = len(xs)
+
+    cell_entries = sorted(
+        (
+            (_cell_id_for_xy(xs[idx], ys[idx], inv_cell_size, cols, max_col, max_row), idx)
+            for idx in range(count)
+        ),
+        key=itemgetter(0),
+    )
+
+    grouped = {
+        cell_id: tuple(idx for _, idx in group)
+        for cell_id, group in groupby(cell_entries, key=itemgetter(0))
+    }
+    cells: SpatialGrid = tuple(grouped.get(cid, ()) for cid in range(total_cells))
+    return SpatialGridIndex(cols=cols, rows=rows, cell_size=cell_size, cells=cells)
+
+
 def build_spatial_grid(
     boids: tuple[Boid, ...],
     world_width: int,
@@ -54,14 +108,13 @@ def build_spatial_grid(
     """Construye declarativamente la Grilla Espacial Inmutable en una sola pasada."""
     cols, rows = grid_dimensions(world_width, world_height, cell_size)
     total_cells = cols * rows
+    inv_cell_size = 1.0 / cell_size
+    max_col = cols - 1
+    max_row = rows - 1
 
     cell_entries = sorted(
         (
-            (
-                cell_coords(boid.x, boid.y, cell_size, cols, rows)[1] * cols
-                + cell_coords(boid.x, boid.y, cell_size, cols, rows)[0],
-                idx,
-            )
+            (_cell_id_for_xy(boid.x, boid.y, inv_cell_size, cols, max_col, max_row), idx)
             for idx, boid in enumerate(boids)
         ),
         key=itemgetter(0),
