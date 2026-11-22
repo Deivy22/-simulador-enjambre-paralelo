@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from core.engine.spatial_grid import SpatialGridIndex, query_neighbor_indices
-from core.physics.integrator import integrate_boid
+from core.engine.spatial_grid import SpatialGridIndex
+from core.parallel.ipc_codec import PackedBoidBuffer, buffer_as_readonly_tuples
+from core.physics.integrator import integrate_boid_from_flat
 from data.config import SimConfig
-from data.entities import Boid, FlatBoidSnapshot
 from data.input_state import InputState
 from data.types import ChunkRange, FlatBoidTuple
 
@@ -17,54 +17,40 @@ class WorkerTask:
     """Carga inmutable enviada a un worker para procesar un segmento [start, end)."""
 
     chunk_range: ChunkRange
-    snapshot: FlatBoidSnapshot
+    buffer: PackedBoidBuffer
     grid: SpatialGridIndex
     input_state: InputState
     config: SimConfig
     dt: float
 
 
-def _evaluate_boid_at_index(
-    idx: int,
-    snapshot: FlatBoidSnapshot,
-    grid: SpatialGridIndex,
-    input_state: InputState,
-    config: SimConfig,
-    dt: float,
-) -> FlatBoidTuple:
-    """Evalúa puramente el boid `idx` leyendo solo sus vecinos 3×3 del snapshot."""
-    xs = snapshot.xs
-    ys = snapshot.ys
-    vxs = snapshot.vxs
-    vys = snapshot.vys
-
-    boid = Boid(x=xs[idx], y=ys[idx], vx=vxs[idx], vy=vys[idx])
-    neighbor_indices = query_neighbor_indices(grid, boid.x, boid.y, exclude_index=idx)
-    neighbors = tuple(
-        Boid(x=xs[j], y=ys[j], vx=vxs[j], vy=vys[j])
-        for j in neighbor_indices
-    )
-    updated = integrate_boid(
-        boid=boid,
-        neighbors=neighbors,
-        input_state=input_state,
-        config=config,
-        dt=dt,
-    )
-    return (updated.x, updated.y, updated.vx, updated.vy)
-
-
 def process_boid_chunk(task: WorkerTask) -> tuple[FlatBoidTuple, ...]:
-    """Función worker pura de nivel superior: actualiza su segmento sin efectos secundarios."""
+    """Función worker pura de nivel superior: evalúa su segmento sobre tuplas solo-lectura."""
     start, end = task.chunk_range
+    xs, ys, vxs, vys = buffer_as_readonly_tuples(task.buffer)
+    grid = task.grid
+    cells = grid.cells
+    cols = grid.cols
+    rows = grid.rows
+    inv_cell_size = 1.0 / grid.cell_size
+    input_state = task.input_state
+    config = task.config
+    dt = task.dt
+
     return tuple(
-        _evaluate_boid_at_index(
+        integrate_boid_from_flat(
             idx=idx,
-            snapshot=task.snapshot,
-            grid=task.grid,
-            input_state=task.input_state,
-            config=task.config,
-            dt=task.dt,
+            xs=xs,
+            ys=ys,
+            vxs=vxs,
+            vys=vys,
+            cells=cells,
+            cols=cols,
+            rows=rows,
+            inv_cell_size=inv_cell_size,
+            input_state=input_state,
+            config=config,
+            dt=dt,
         )
         for idx in range(start, end)
     )
