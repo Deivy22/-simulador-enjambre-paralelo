@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+import time
+from typing import ParamSpec, TypeVar
+
 from data.config import SimConfig
 from data.metrics import MetricsSnapshot
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 def clamp_interactive_dt(raw_dt: float, config: SimConfig) -> float:
@@ -47,3 +54,15 @@ def update_metrics_snapshot(
         cpu_count=prev.cpu_count if cpu_count is None else cpu_count,
         active_workers=prev.active_workers if active_workers is None else active_workers,
     )
+
+
+def measure_execution_ms(
+    fn: Callable[P, R],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> tuple[R, float]:
+    """Mide el tiempo de ejecución de una función con time.perf_counter."""
+    start = time.perf_counter()
+    result = fn(*args, **kwargs)
+    elapsed_ms = (time.perf_counter() - start) * 1000.0
+    return (result, elapsed_ms)
