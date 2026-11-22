@@ -7,8 +7,13 @@ from core.parallel.engine import (
     update_parallel,
 )
 from core.parallel.ipc_codec import (
+    PackedBoidBuffer,
+    buffer_as_readonly_tuples,
+    buffer_as_readonly_views,
+    pack_boids_to_buffer,
     pack_boids_to_flat_tuples,
     pack_boids_to_snapshot,
+    unpack_buffer_to_boids,
     unpack_flat_tuples_to_boids,
     unpack_snapshot_to_boids,
 )
@@ -29,8 +34,11 @@ from core.parallel.pool_lifecycle import (
 from core.parallel.worker import WorkerTask, process_boid_chunk
 
 __all__: tuple[str, ...] = (
+    "PackedBoidBuffer",
     "PoolHandle",
     "WorkerTask",
+    "buffer_as_readonly_tuples",
+    "buffer_as_readonly_views",
     "build_worker_tasks",
     "close_pool_handle",
     "compute_chunk_ranges",
@@ -40,11 +48,13 @@ __all__: tuple[str, ...] = (
     "ensure_pool_workers",
     "managed_worker_pool",
     "normalize_worker_count",
+    "pack_boids_to_buffer",
     "pack_boids_to_flat_tuples",
     "pack_boids_to_snapshot",
     "process_boid_chunk",
     "recommended_worker_count",
     "step_boids_parallel",
+    "unpack_buffer_to_boids",
     "unpack_flat_tuples_to_boids",
     "unpack_snapshot_to_boids",
     "update_parallel",

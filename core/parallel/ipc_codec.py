@@ -60,3 +60,32 @@ def pack_boids_to_buffer(boids: tuple[Boid, ...]) -> PackedBoidBuffer:
         vys_bytes=array("d", (b.vy for b in boids)).tobytes(),
         count=len(boids),
     )
+
+
+def buffer_as_readonly_views(
+    buf: PackedBoidBuffer,
+) -> tuple[memoryview, memoryview, memoryview, memoryview]:
+    """Expone vistas float64 de solo lectura y sin copias sobre el buffer."""
+    return (
+        memoryview(buf.xs_bytes).cast("d"),
+        memoryview(buf.ys_bytes).cast("d"),
+        memoryview(buf.vxs_bytes).cast("d"),
+        memoryview(buf.vys_bytes).cast("d"),
+    )
+
+
+def buffer_as_readonly_tuples(
+    buf: PackedBoidBuffer,
+) -> tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...], tuple[float, ...]]:
+    """Materializa una vez por segmento cuatro tuplas inmutables de coordenadas."""
+    xs_v, ys_v, vxs_v, vys_v = buffer_as_readonly_views(buf)
+    return (tuple(xs_v), tuple(ys_v), tuple(vxs_v), tuple(vys_v))
+
+
+def unpack_buffer_to_boids(buf: PackedBoidBuffer) -> tuple[Boid, ...]:
+    """Reconstruye una tupla inmutable de Boids desde el buffer binario."""
+    xs, ys, vxs, vys = buffer_as_readonly_views(buf)
+    return tuple(
+        Boid(x=xs[i], y=ys[i], vx=vxs[i], vy=vys[i])
+        for i in range(buf.count)
+    )
