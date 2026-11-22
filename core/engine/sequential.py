@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from core.engine.spatial_grid import build_spatial_grid, query_neighbors
-from core.physics.integrator import integrate_boid
+from core.engine.spatial_grid import build_spatial_grid_from_coords
+from core.physics.integrator import integrate_boid_from_flat
 from core.state.transitions import apply_input_transitions
 from data.config import SimConfig
 from data.entities import Boid
@@ -21,24 +21,43 @@ def step_boids_sequential(
     dt: float,
 ) -> tuple[Boid, ...]:
     """Avanza un paso físico puro sobre todos los boids usando Grilla Espacial Inmutable."""
-    if not boids:
+    count = len(boids)
+    if count == 0:
         return ()
 
-    grid = build_spatial_grid(
-        boids=boids,
+    xs = tuple(b.x for b in boids)
+    ys = tuple(b.y for b in boids)
+    vxs = tuple(b.vx for b in boids)
+    vys = tuple(b.vy for b in boids)
+
+    grid = build_spatial_grid_from_coords(
+        xs=xs,
+        ys=ys,
         world_width=config.world_width,
         world_height=config.world_height,
         cell_size=config.perception_radius,
     )
+    cells = grid.cells
+    cols = grid.cols
+    rows = grid.rows
+    inv_cell_size = 1.0 / grid.cell_size
+
     return tuple(
-        integrate_boid(
-            boid=boid,
-            neighbors=query_neighbors(boids, grid, idx),
+        Boid(*integrate_boid_from_flat(
+            idx=idx,
+            xs=xs,
+            ys=ys,
+            vxs=vxs,
+            vys=vys,
+            cells=cells,
+            cols=cols,
+            rows=rows,
+            inv_cell_size=inv_cell_size,
             input_state=input_state,
             config=config,
             dt=dt,
-        )
-        for idx, boid in enumerate(boids)
+        ))
+        for idx in range(count)
     )
 
 
