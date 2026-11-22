@@ -1,4 +1,4 @@
-"""Gestión headless del ciclo de vida del multiprocessing.Pool."""
+"""Gestión headless y segura del ciclo de vida del multiprocessing.Pool (sin Pygame)."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def ensure_pool_workers(
     resolved = normalize_worker_count(desired_workers, cpu_count=cpu_count)
 
     if not active:
-        close_pool_handle(handle)
+        closed = close_pool_handle(handle)
         return PoolHandle(pool=None, workers=resolved)
 
     if handle.pool is not None and handle.workers == resolved:
