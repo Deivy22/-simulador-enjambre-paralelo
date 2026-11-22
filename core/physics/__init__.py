@@ -11,7 +11,7 @@ from core.physics.flocking import (
     compute_flocking_forces,
     compute_separation,
 )
-from core.physics.integrator import integrate_boid
+from core.physics.integrator import integrate_boid, integrate_boid_from_flat
 
 __all__: tuple[str, ...] = (
     "clamp_position_and_velocity",
@@ -22,4 +22,5 @@ __all__: tuple[str, ...] = (
     "compute_mouse_force",
     "compute_separation",
     "integrate_boid",
+    "integrate_boid_from_flat",
 )
