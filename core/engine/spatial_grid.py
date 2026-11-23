@@ -54,7 +54,7 @@ def _cell_id_for_xy(
     max_col: int,
     max_row: int,
 ) -> int:
-    """Calcula el índice plano de celda en una sola operación."""
+    """Calcula el índice plano de celda (cy * cols + cx) en una sola operación."""
     cx = int(x * inv_cell_size)
     cy = int(y * inv_cell_size)
     if cx < 0:
@@ -75,7 +75,7 @@ def build_spatial_grid_from_coords(
     world_height: int,
     cell_size: float,
 ) -> SpatialGridIndex:
-    """Construye la grilla espacial inmutable desde secuencias planas de coordenadas."""
+    """Construye declarativamente la Grilla Espacial Inmutable desde coordenadas planas."""
     cols, rows = grid_dimensions(world_width, world_height, cell_size)
     total_cells = cols * rows
     inv_cell_size = 1.0 / cell_size

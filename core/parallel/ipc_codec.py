@@ -1,4 +1,4 @@
-"""Empaquetado ligero e inmutable de Boids para comunicación entre procesos (IPC)."""
+"""Empaquetado ligero e inmutable de Boids para IPC (tuplas planas y buffers binarios)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from data.types import FlatBoidTuple
 
 @dataclass(frozen=True, slots=True)
 class PackedBoidBuffer:
-    """Buffer binario inmutable de flotantes IEEE-754 para serialización IPC."""
+    """Buffer binario 100% inmutable (bytes IEEE-754) para serialización IPC ultra-rápida."""
 
     xs_bytes: bytes
     ys_bytes: bytes
@@ -52,7 +52,7 @@ def unpack_snapshot_to_boids(snapshot: FlatBoidSnapshot) -> tuple[Boid, ...]:
 
 
 def pack_boids_to_buffer(boids: tuple[Boid, ...]) -> PackedBoidBuffer:
-    """Empaqueta Boids en cuatro bloques contiguos e inmutables de bytes."""
+    """Empaqueta Boids en 4 bloques inmutables de flotantes C contiguos (bytes)."""
     return PackedBoidBuffer(
         xs_bytes=array("d", (b.x for b in boids)).tobytes(),
         ys_bytes=array("d", (b.y for b in boids)).tobytes(),
@@ -65,7 +65,7 @@ def pack_boids_to_buffer(boids: tuple[Boid, ...]) -> PackedBoidBuffer:
 def buffer_as_readonly_views(
     buf: PackedBoidBuffer,
 ) -> tuple[memoryview, memoryview, memoryview, memoryview]:
-    """Expone vistas float64 de solo lectura y sin copias sobre el buffer."""
+    """Expone vistas float64 de solo lectura sin copias (zero-copy) sobre PackedBoidBuffer."""
     return (
         memoryview(buf.xs_bytes).cast("d"),
         memoryview(buf.ys_bytes).cast("d"),
@@ -77,13 +77,13 @@ def buffer_as_readonly_views(
 def buffer_as_readonly_tuples(
     buf: PackedBoidBuffer,
 ) -> tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...], tuple[float, ...]]:
-    """Materializa una vez por segmento cuatro tuplas inmutables de coordenadas."""
+    """Materializa una sola vez por chunk 4 tuplas inmutables para indexación C sin asignaciones."""
     xs_v, ys_v, vxs_v, vys_v = buffer_as_readonly_views(buf)
     return (tuple(xs_v), tuple(ys_v), tuple(vxs_v), tuple(vys_v))
 
 
 def unpack_buffer_to_boids(buf: PackedBoidBuffer) -> tuple[Boid, ...]:
-    """Reconstruye una tupla inmutable de Boids desde el buffer binario."""
+    """Reconstruye una tupla inmutable de Boids desde un PackedBoidBuffer."""
     xs, ys, vxs, vys = buffer_as_readonly_views(buf)
     return tuple(
         Boid(x=xs[i], y=ys[i], vx=vxs[i], vy=vys[i])

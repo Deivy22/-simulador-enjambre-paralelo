@@ -1,4 +1,4 @@
-"""Cálculo puro de métricas de rendimiento y utilidades de tiempo."""
+"""Cálculo puro de métricas de rendimiento (ventana móvil inmutable) y utilidades de tiempo."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ R = TypeVar("R")
 
 
 def clamp_interactive_dt(raw_dt: float, config: SimConfig) -> float:
-    """Acota el dt real del Game Loop interactivo a [0.0, config.max_dt]."""
+    """Acota el dt real del Game Loop interactivo a [0.0, config.max_dt] (0.05s)."""
     if raw_dt <= 0.0:
         return 0.0
     if raw_dt > config.max_dt:
@@ -37,7 +37,7 @@ def update_metrics_snapshot(
     cpu_count: int | None = None,
     active_workers: int | None = None,
 ) -> MetricsSnapshot:
-    """Construye un MetricsSnapshot congelado con una ventana móvil inmutable de FPS."""
+    """Construye un nuevo MetricsSnapshot congelado con ventana móvil inmutable de FPS."""
     if window_size <= 0:
         raise ValueError("window_size debe ser mayor que cero.")
 
@@ -61,7 +61,7 @@ def measure_execution_ms(
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> tuple[R, float]:
-    """Mide el tiempo de ejecución de una función con time.perf_counter."""
+    """Mide en milisegundos con time.perf_counter el tiempo exclusivo de ejecución de fn."""
     start = time.perf_counter()
     result = fn(*args, **kwargs)
     elapsed_ms = (time.perf_counter() - start) * 1000.0
