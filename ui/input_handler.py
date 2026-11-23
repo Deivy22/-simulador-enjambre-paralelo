@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import pygame
 
 from data.config import SimConfig
-from data.input_state import InputState
+from data.input_state import InputState, resolve_mouse_action
 from data.types import ScreenMode, StartAction, Vec2
 from ui.layout import SimulationLayout, StartScreenLayout, point_in_rect
 
@@ -44,6 +44,11 @@ def translate_events_to_input(
     """Traduce eventos discretos a un único InputState congelado."""
     left_click = bool(mouse_buttons[0])
     right_click = bool(mouse_buttons[2])
+    mouse_in_canvas = (
+        screen is ScreenMode.SIMULATION
+        and point_in_rect(mouse_pos, sim_layout.canvas)
+    )
+    mouse_action = resolve_mouse_action(left_click, right_click, mouse_in_canvas)
 
     quit_requested = False
     toggle_mode = False
@@ -104,8 +109,10 @@ def translate_events_to_input(
 
     return InputState(
         mouse_pos=mouse_pos,
+        mouse_in_canvas=mouse_in_canvas,
         left_click=left_click,
         right_click=right_click,
+        mouse_action=mouse_action,
         requested_entity_count=requested_entity_count,
         toggle_mode=toggle_mode,
         worker_delta=worker_delta,
