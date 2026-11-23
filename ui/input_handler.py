@@ -1,4 +1,4 @@
-"""Resolución pura de clics de la Pantalla de Inicio."""
+"""Captura y traducción pura de eventos Pygame hacia InputState inmutable."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def _resolve_start_click(
     click_pos: Vec2,
     start_layout: StartScreenLayout,
 ) -> StartAction:
-    """Mapea clics de los selectores y el botón principal a acciones inmutables."""
+    """Mapea un clic en la Pantalla de Inicio hacia su StartAction correspondiente."""
     if point_in_rect(click_pos, start_layout.btn_1000):
         return StartAction.SELECT_1000
     if point_in_rect(click_pos, start_layout.btn_3000):
@@ -41,7 +41,7 @@ def translate_events_to_input(
     start_layout: StartScreenLayout,
     sim_layout: SimulationLayout,
 ) -> InputState:
-    """Traduce eventos discretos a un único InputState congelado."""
+    """Traduce eventos discretos y estado de mouse en un InputState congelado."""
     left_click = bool(mouse_buttons[0])
     right_click = bool(mouse_buttons[2])
     mouse_in_canvas = (
@@ -121,4 +121,25 @@ def translate_events_to_input(
         return_to_menu=return_to_menu,
         quit_requested=quit_requested,
         start_action=start_action,
+    )
+
+
+def collect_pygame_input(
+    screen: ScreenMode,
+    config: SimConfig,
+    start_layout: StartScreenLayout,
+    sim_layout: SimulationLayout,
+) -> InputState:
+    """Lee la cola de eventos y estado del mouse desde Pygame y retorna InputState puro."""
+    events = tuple(pygame.event.get())
+    mx, my = pygame.mouse.get_pos()
+    buttons = pygame.mouse.get_pressed(3)
+    return translate_events_to_input(
+        events=events,
+        mouse_pos=(float(mx), float(my)),
+        mouse_buttons=(bool(buttons[0]), bool(buttons[1]), bool(buttons[2])),
+        screen=screen,
+        config=config,
+        start_layout=start_layout,
+        sim_layout=sim_layout,
     )
