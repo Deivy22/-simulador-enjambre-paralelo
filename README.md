@@ -79,3 +79,25 @@ python -m benchmarks.run_benchmark
 ```
 Parámetros opcionales: `--frames 8 --workers 3 --seed 42`.
 
+---
+
+## Controles Interactivos
+
+### Pantalla 1 — Inicio (`1280×720`)
+* **Clic** (o teclas `1` / `3` / `5`): Seleccionar carga inicial (**1,000**, **3,000** o **5,000** boids).
+* **Clic** (o teclas `S` / `P`): Seleccionar modo inicial (**Secuencial** o **Paralelo**).
+* **Botón `INICIAR SIMULACIÓN`** (o `Enter` / `Espacio`): Inicia la simulación en el layout de 2 zonas.
+
+### Pantalla 2 — Simulación (`Canvas 960×720` + `Panel Lateral 320×720`)
+| Tecla / Acción | Función |
+| :--- | :--- |
+| `1` / `3` / `5` | Cambia en vivo a **1,000**, **3,000** o **5,000** entidades (reinicia ventana de FPS). |
+| `M` | Alterna en vivo entre **Modo Secuencial (1 núcleo)** y **Modo Paralelo (N workers)**. |
+| `+` / `-` | Aumenta o disminuye en 1 los workers activos (`1` hasta `os.cpu_count()`). |
+| `Clic Izquierdo` (en Canvas) | **Atractor:** el enjambre persigue el cursor. |
+| `Clic Derecho` (en Canvas) | **Repulsor:** el enjambre huye del cursor (tiene prioridad sobre atractor). |
+| `R` | Reinicia el enjambre con la semilla determinista. |
+| `Espacio` | Pausa / reanuda la simulación. |
+| `Backspace` / Botón `Menú` | Regresa a la Pantalla de Inicio cerrando el `Pool` limpiamente. |
+| `ESC` | Cierra el simulador y termina los procesos hijos limpiamente. |
+
