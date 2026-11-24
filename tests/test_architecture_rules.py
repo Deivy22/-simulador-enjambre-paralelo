@@ -129,3 +129,37 @@ def test_no_mutable_global_variables_at_module_level() -> None:
                 assert not _is_mutable_literal_or_ctor(stmt.value), (
                     f"Variable global mutable anotada en {path.relative_to(PROJECT_ROOT)}:{stmt.lineno}"
                 )
+
+
+def test_worker_module_is_spawn_picklable_without_lambdas_or_nested_functions() -> None:
+    worker_path = PROJECT_ROOT / "core" / "parallel" / "worker.py"
+    tree = _parse_module(worker_path)
+
+    for node in ast.walk(tree):
+        assert not isinstance(node, ast.Lambda), "Prohibido usar lambda en core/parallel/worker.py"
+
+    for stmt in tree.body:
+        if isinstance(stmt, ast.FunctionDef):
+            for inner in ast.walk(stmt):
+                if inner is not stmt:
+                    assert not isinstance(inner, (ast.FunctionDef, ast.AsyncFunctionDef)), (
+                        f"Función anidada/closure detectada dentro de {stmt.name} en worker.py"
+                    )
+
+
+def test_entrypoints_protect_windows_spawn_guard() -> None:
+    for rel_path in ("main.py", "benchmarks/stress_preview.py"):
+        path = PROJECT_ROOT / rel_path
+        tree = _parse_module(path)
+        has_main_guard = any(
+            isinstance(stmt, ast.If)
+            and isinstance(stmt.test, ast.Compare)
+            and isinstance(stmt.test.left, ast.Name)
+            and stmt.test.left.id == "__name__"
+            and any(
+                isinstance(comp, ast.Constant) and comp.value == "__main__"
+                for comp in stmt.test.comparators
+            )
+            for stmt in tree.body
+        )
+        assert has_main_guard, f"Falta guarda if __name__ == '__main__': en {rel_path}"
