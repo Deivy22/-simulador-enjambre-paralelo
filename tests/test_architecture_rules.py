@@ -148,7 +148,7 @@ def test_worker_module_is_spawn_picklable_without_lambdas_or_nested_functions() 
 
 
 def test_entrypoints_protect_windows_spawn_guard() -> None:
-    for rel_path in ("main.py", "benchmarks/stress_preview.py"):
+    for rel_path in ("main.py", "benchmarks/run_benchmark.py", "benchmarks/stress_preview.py"):
         path = PROJECT_ROOT / rel_path
         tree = _parse_module(path)
         has_main_guard = any(
