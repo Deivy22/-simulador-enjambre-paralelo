@@ -6,6 +6,7 @@ import ast
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+APP_PACKAGES: tuple[str, ...] = ("data", "core", "ui", "benchmarks")
 
 
 def _iter_python_files(relative_dir: str) -> tuple[Path, ...]:
@@ -32,6 +33,44 @@ def _imported_roots(tree: ast.Module) -> tuple[str, ...]:
     return roots
 
 
+def _is_frozen_dataclass_or_enum(cls_node: ast.ClassDef) -> bool:
+    """Verifica que una clase sea Enum o esté decorada con @dataclass(frozen=True, ...)."""
+    for base in cls_node.bases:
+        if isinstance(base, ast.Name) and base.id == "Enum":
+            return True
+        if isinstance(base, ast.Attribute) and base.attr == "Enum":
+            return True
+
+    for dec in cls_node.decorator_list:
+        if isinstance(dec, ast.Call):
+            func_name = (
+                dec.func.id
+                if isinstance(dec.func, ast.Name)
+                else (dec.func.attr if isinstance(dec.func, ast.Attribute) else "")
+            )
+            if func_name == "dataclass":
+                has_frozen_true = any(
+                    kw.arg == "frozen"
+                    and isinstance(kw.value, ast.Constant)
+                    and kw.value.value is True
+                    for kw in dec.keywords
+                )
+                if has_frozen_true:
+                    return True
+    return False
+
+
+def _is_mutable_literal_or_ctor(expr: ast.expr | None) -> bool:
+    """Detecta literales o constructores de colecciones mutables (list, dict, set)."""
+    if expr is None:
+        return False
+    if isinstance(expr, (ast.List, ast.Dict, ast.Set, ast.ListComp, ast.DictComp, ast.SetComp)):
+        return True
+    if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name):
+        return expr.func.id in ("list", "dict", "set", "bytearray")
+    return False
+
+
 def test_no_pygame_or_ui_imports_in_data_core_and_benchmarks() -> None:
     forbidden = {"pygame", "ui"}
     for pkg in ("data", "core", "benchmarks"):
@@ -47,3 +86,46 @@ def test_data_layer_has_zero_internal_dependencies() -> None:
         imports = set(_imported_roots(_parse_module(path)))
         overlap = imports & forbidden
         assert not overlap, f"Capa data/ importa {overlap} en {path.relative_to(PROJECT_ROOT)}"
+
+
+def test_no_mutable_classes_or_self_mutations_across_application() -> None:
+    all_files = tuple(
+        path
+        for pkg in APP_PACKAGES
+        for path in _iter_python_files(pkg)
+    ) + (PROJECT_ROOT / "main.py",)
+
+    for path in all_files:
+        tree = _parse_module(path)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                assert _is_frozen_dataclass_or_enum(node), (
+                    f"Clase no congelada '{node.name}' en {path.relative_to(PROJECT_ROOT)}"
+                )
+                for sub in ast.walk(node):
+                    if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        pytest_msg = (
+                            f"Método '{sub.name}' encontrado en clase '{node.name}' "
+                            f"({path.relative_to(PROJECT_ROOT)}); prohibido POO mutable."
+                        )
+                        raise AssertionError(pytest_msg)
+
+
+def test_no_mutable_global_variables_at_module_level() -> None:
+    all_files = tuple(
+        path
+        for pkg in APP_PACKAGES
+        for path in _iter_python_files(pkg)
+    ) + (PROJECT_ROOT / "main.py",)
+
+    for path in all_files:
+        tree = _parse_module(path)
+        for stmt in tree.body:
+            if isinstance(stmt, ast.Assign):
+                assert not _is_mutable_literal_or_ctor(stmt.value), (
+                    f"Variable global mutable en {path.relative_to(PROJECT_ROOT)}:{stmt.lineno}"
+                )
+            elif isinstance(stmt, ast.AnnAssign):
+                assert not _is_mutable_literal_or_ctor(stmt.value), (
+                    f"Variable global mutable anotada en {path.relative_to(PROJECT_ROOT)}:{stmt.lineno}"
+                )
