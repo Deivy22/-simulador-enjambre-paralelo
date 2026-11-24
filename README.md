@@ -101,3 +101,32 @@ Parámetros opcionales: `--frames 8 --workers 3 --seed 42`.
 | `Backspace` / Botón `Menú` | Regresa a la Pantalla de Inicio cerrando el `Pool` limpiamente. |
 | `ESC` | Cierra el simulador y termina los procesos hijos limpiamente. |
 
+---
+
+## Evidencia de Paralelismo y Rendimiento
+
+Resultados reproducibles ejecutados en modo *headless* (`dt = 1/60 s`, `seed = 42`, sin cuello de botella de renderizado Pygame) mediante `python -m benchmarks.run_benchmark`:
+
+* **Procesador (CPU):** `[PENDIENTE: HARDWARE DE PRUEBA]`
+* **Memoria RAM:** `[PENDIENTE: HARDWARE DE PRUEBA]`
+* **Sistema Operativo / Python:** `[PENDIENTE: HARDWARE DE PRUEBA]`
+* **Núcleos Físicos / Lógicos Detectados (`os.cpu_count()`):** `[PENDIENTE: HARDWARE DE PRUEBA]`
+* **Workers Activos en Modo Paralelo:** `[PENDIENTE]` (`max(1, os.cpu_count() - 1)`)
+* **Estrategia de Partición:** 1 chunk balanceado por worker sobre Grilla Espacial Inmutable $O(N \cdot k)$ + `PackedBoidBuffer` (`bytes` float64)
+
+| Cantidad de Entidades | Modo Secuencial (1 Núcleo) | Modo Paralelo (`N` Workers) | Mejora / Speedup | Costo IPC (`pickle`) |
+| :--- | :---: | :---: | :---: | :---: |
+| **1,000 entidades** | `[PENDIENTE] FPS (ms)` | `[PENDIENTE] FPS (ms)` | `[PENDIENTE]` | `[PENDIENTE]` |
+| **3,000 entidades** | `[PENDIENTE] FPS (ms)` | `[PENDIENTE] FPS (ms)` | `[PENDIENTE]` | `[PENDIENTE]` |
+| **5,000 entidades** | `[PENDIENTE] FPS (ms)` | `[PENDIENTE] FPS (ms)` | `[PENDIENTE]` | `[PENDIENTE]` |
+
+> **Nota analítica (*Crossover Point* e IPC):** `[PENDIENTE: completar tras ejecutar python -m benchmarks.run_benchmark en la máquina de prueba oficial del equipo]`
+
+---
+
+## Equipo de Desarrollo
+
+* **Deivy Anthony Prudente Merejildo**
+* **Ronald David Parraga Mendoza**
+* **Javier Infante**
+* **Carlos Bernabé**
