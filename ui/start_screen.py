@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import pygame
 
 from data.game_state import GameState
@@ -165,3 +167,50 @@ def render_start_screen(
         (start_rect.centerx - cta_text.get_width() // 2, start_rect.centery - cta_text.get_height() // 2),
     )
 
+    # Pie informativo real dentro de la tarjeta
+    footer_y = card_rect.y + 394
+    pygame.draw.line(surface, THEME.border, (inner_x, footer_y), (inner_right, footer_y), 1)
+
+    cores_lbl = fonts.mono.render("Núcleos lógicos detectados:", True, THEME.text_secondary)
+    surface.blit(cores_lbl, (inner_x, footer_y + 20))
+
+    badge_x = inner_x + cores_lbl.get_width() + 10
+    badge_text = fonts.mono.render(str(state.metrics.cpu_count), True, THEME.text_primary)
+    badge_rect = pygame.Rect(badge_x, footer_y + 16, max(28, badge_text.get_width() + 14), 24)
+    pygame.draw.rect(surface, THEME.button_bg, badge_rect, border_radius=4)
+    pygame.draw.rect(surface, THEME.border, badge_rect, width=1, border_radius=4)
+    surface.blit(
+        badge_text,
+        (badge_rect.centerx - badge_text.get_width() // 2, badge_rect.centery - badge_text.get_height() // 2),
+    )
+
+    ready_text = fonts.mono.render(
+        f"• Listo ({state.workers} workers)",
+        True,
+        THEME.accent_parallel,
+    )
+    surface.blit(ready_text, (inner_right - ready_text.get_width(), footer_y + 20))
+
+    # Barra de estado inferior con datos reales del entorno Python
+    bar_rect = _to_pygame_rect(layout.status_bar)
+    pygame.draw.rect(surface, THEME.panel_bg, bar_rect)
+    pygame.draw.line(
+        surface,
+        THEME.border,
+        (0, bar_rect.y),
+        (cfg.window_width, bar_rect.y),
+        1,
+    )
+    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+    left_status = fonts.mono.render(
+        f"ESTADO: LISTO  |  LIENZO {cfg.world_width}x{cfg.world_height} + PANEL {cfg.panel_width}px",
+        True,
+        THEME.text_secondary,
+    )
+    right_status = fonts.mono.render(
+        f"RUNTIME: PYTHON {py_ver} + MULTIPROCESSING",
+        True,
+        THEME.text_secondary,
+    )
+    surface.blit(left_status, (16, bar_rect.y + 8))
+    surface.blit(right_status, (cfg.window_width - right_status.get_width() - 16, bar_rect.y + 8))
