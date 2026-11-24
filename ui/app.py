@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import time
 
 import pygame
 
-from core.state import apply_input_transitions, clamp_interactive_dt, create_initial_state
+from core.engine import step_boids_sequential
+from core.parallel import (
+    PoolHandle,
+    ensure_pool_workers,
+    step_boids_parallel,
+)
+from core.state import (
+    apply_input_transitions,
+    clamp_interactive_dt,
+    create_initial_state,
+    measure_execution_ms,
+    update_metrics_snapshot,
+)
 from data.config import SimConfig
 from data.game_state import GameState
 from data.types import ScreenMode, SimMode
@@ -33,6 +46,7 @@ def run_simulator(
     cfg = state.config
     start_layout = build_start_layout(cfg)
     sim_layout = build_simulation_layout(cfg)
+    pool_handle = PoolHandle(pool=None, workers=state.workers)
 
     pygame.init()
     pygame.display.set_caption("Simulador de Enjambre 2D — Boids Paralelo")
@@ -44,7 +58,8 @@ def run_simulator(
 
     while running:
         now = time.perf_counter()
-        dt = clamp_interactive_dt(now - previous_time, state.config)
+        raw_dt = now - previous_time
+        dt = clamp_interactive_dt(raw_dt, state.config)
         previous_time = now
 
         input_state = collect_pygame_input(
@@ -58,6 +73,51 @@ def run_simulator(
             continue
 
         state = apply_input_transitions(state, input_state)
+        need_pool = (
+            state.screen is ScreenMode.SIMULATION
+            and state.mode is SimMode.PARALLEL
+        )
+        pool_handle = ensure_pool_workers(
+            pool_handle,
+            desired_workers=state.workers,
+            active=need_pool,
+            cpu_count=state.metrics.cpu_count,
+        )
+
+        physics_ms = 0.0
+        if state.screen is ScreenMode.SIMULATION and not state.paused:
+            if state.mode is SimMode.PARALLEL and pool_handle.pool is not None:
+                next_boids, physics_ms = measure_execution_ms(
+                    step_boids_parallel,
+                    state.boids,
+                    input_state,
+                    state.config,
+                    dt,
+                    pool_handle.pool,
+                    state.workers,
+                )
+            else:
+                next_boids, physics_ms = measure_execution_ms(
+                    step_boids_sequential,
+                    state.boids,
+                    input_state,
+                    state.config,
+                    dt,
+                )
+            state = replace(state, boids=next_boids, frame=state.frame + 1)
+
+        if state.screen is ScreenMode.SIMULATION:
+            state = replace(
+                state,
+                metrics=update_metrics_snapshot(
+                    prev=state.metrics,
+                    physics_ms=physics_ms,
+                    frame_ms=raw_dt * 1000.0,
+                    window_size=state.config.fps_window_size,
+                    active_workers=state.workers,
+                ),
+            )
+
         if state.screen is ScreenMode.START:
             render_start_screen(surface, state, start_layout, fonts)
         else:
