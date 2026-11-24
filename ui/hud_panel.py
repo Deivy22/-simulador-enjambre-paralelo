@@ -6,8 +6,21 @@ import pygame
 
 from data.game_state import GameState
 from data.types import SimMode
-from ui.layout import SimulationLayout
+from ui.layout import SimulationLayout, point_in_rect
 from ui.theme import THEME, ColorRGB, UiFonts
+
+SHORTCUTS: tuple[tuple[str, str], ...] = (
+    ("1 / 3 / 5", "Carga 1k / 3k / 5k"),
+    ("M", "Secuencial / Paralelo"),
+    ("+ / -", "Ajustar workers"),
+    ("Clic Izq", "Atractor en lienzo"),
+    ("Clic Der", "Repulsor en lienzo"),
+    ("R", "Reiniciar semilla"),
+    ("Espacio", "Pausar / Reanudar"),
+    ("Backspace", "Volver al Menú"),
+    ("ESC", "Salir limpio"),
+)
+
 
 def _draw_metric_row(
     surface: pygame.Surface,
@@ -169,3 +182,44 @@ def render_hud_panel(
 
     pygame.draw.line(surface, THEME.border, (x, y), (right_x, y), 1)
     y += 16
+
+    # ================= BLOQUE 3: ATAJOS =================
+    sec3_lbl = fonts.mono.render("ATAJOS", True, THEME.text_secondary)
+    surface.blit(sec3_lbl, (x, y))
+    y += 22
+
+    for key_label, desc in SHORTCUTS:
+        key_surf = fonts.mono.render(key_label, True, THEME.text_primary)
+        key_box = pygame.Rect(x, y, 82, 20)
+        pygame.draw.rect(surface, THEME.button_bg, key_box, border_radius=4)
+        pygame.draw.rect(surface, THEME.border, key_box, width=1, border_radius=4)
+        surface.blit(
+            key_surf,
+            (key_box.centerx - key_surf.get_width() // 2, key_box.centery - key_surf.get_height() // 2),
+        )
+        desc_surf = fonts.small.render(desc, True, THEME.text_secondary)
+        surface.blit(desc_surf, (x + 92, y + 3))
+        y += 24
+
+    # ================= BOTÓN DISCRETO MENÚ =================
+    menu_box = layout.btn_menu
+    menu_rect = pygame.Rect(menu_box.x, menu_box.y, menu_box.width, menu_box.height)
+    hovered = point_in_rect(state.input_state.mouse_pos, menu_box)
+    pygame.draw.rect(
+        surface,
+        THEME.button_hover if hovered else THEME.button_bg,
+        menu_rect,
+        border_radius=6,
+    )
+    pygame.draw.rect(
+        surface,
+        THEME.accent_cyan if hovered else THEME.border,
+        menu_rect,
+        width=1,
+        border_radius=6,
+    )
+    menu_text = fonts.body_bold.render("<  Menú  (Backspace)", True, THEME.text_primary)
+    surface.blit(
+        menu_text,
+        (menu_rect.centerx - menu_text.get_width() // 2, menu_rect.centery - menu_text.get_height() // 2),
+    )
