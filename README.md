@@ -32,3 +32,23 @@ ui/ (Solo Lectura)             Canvas 2D (960×720)  |  Panel Lateral HUD (320×
 | **`ui/`** | Pantalla de Inicio, Canvas 2D, Panel Lateral HUD, captura de eventos Pygame y Game Loop (`ui/app.py`). | Puede importar `data/` y `core/`. Prohibido calcular física o mutar entidades. |
 | **`tests/` y `benchmarks/`** | Pruebas unitarias, equivalencia matemática, auditoría AST y benchmarks reproducibles (`dt = 1/60`). | 100% *headless* (cero `pygame`, cero `ui/`). |
 
+---
+
+## Modelo Físico y Pipeline Paralelo
+
+### Reglas Físicas Puras (Boids)
+Cada boid calcula en el instante $t$ cinco fuerzas puras sin mutar a ningún vecino:
+1. **Separación ($\vec{F}_{sep}$):** Repulsión dentro de `separation_radius = 18.0 px` con piso de seguridad $\varepsilon = 1.0\text{ px}$ y reescalado $r_{sep}^2$ para evitar divisiones por cero y desbalances numéricos.
+2. **Alineación ($\vec{F}_{ali}$):** Ajuste hacia la velocidad promedio de los vecinos en `perception_radius = 45.0 px`.
+3. **Cohesión ($\vec{F}_{coh}$):** Atracción hacia el centro de masa local en `perception_radius`.
+4. **Interacción del Cursor ($\vec{F}_{mouse}$):** Fuerza progresiva $(1 - d / r_{mouse})$ dentro de `150.0 px` solo cuando el cursor está sobre el Canvas (`960×720`), dando prioridad al repulsor si se presionan ambos botones.
+5. **Límites Suaves + Respaldo (*Soft Boundaries* + *Hard Clamp*):** Giro progresivo dentro de `margin = 60.0 px` sobre el área `960×720`, más acotamiento seguro en `[0, 960] × [0, 720]` y velocidad en `[90, 220] px/s` protegida ante norma cero.
+
+### Estrategia de Paralelismo (`multiprocessing`) y Optimización IPC
+Ambos modos (**Secuencial** y **Paralelo**) ejecutan exactamente la misma **Grilla Espacial Inmutable** ($O(N \cdot k)$ representada como `tuple[tuple[int, ...], ...]`) y el mismo integrador puro de una sola pasada (`integrate_boid_from_flat`), garantizando equivalencia matemática dentro de `1e-9`:
+
+1. **Fase 1 — Segmentación y Empaquetado Compacto:** Se construye una única Grilla Espacial Inmutable del frame $t$, se empaquetan `(x, y, vx, vy)` en `PackedBoidBuffer` (4 bloques inmutables `bytes` IEEE-754 float64) y se divide `[0, N)` en **1 chunk balanceado por worker** (`compute_chunk_ranges`), repartiendo equitativamente cualquier residuo.
+2. **Fase 2 — Mapeo Paralelo (*Spawn-Safe*):** Un `multiprocessing.Pool` **persistente** (creado una sola vez con `max(1, os.cpu_count() - 1)` workers por defecto) despacha tareas hacia la función pura de nivel superior `process_boid_chunk` (sin `lambda` ni *closures*), que lee las coordenadas en solo-lectura (`memoryview.cast("d")` → tuplas C una vez por chunk) y evalúa las 9 celdas vecinas 3×3.
+3. **Fase 3 — Sincronización y Consolidación Inmutable:** `Pool.map` actúa como barrera de sincronización; los segmentos devueltos se consolidan en orden exacto `0..N-1` en una nueva tupla de `Boid` congelados para construir el nuevo `GameState`.
+4. **Cierre Limpio Obligatorio:** Al presionar `ESC`, cerrar la ventana, cambiar de workers (`+`/`-`) o volver a la Pantalla de Inicio (`Backspace` / botón `Menú`), `pool_lifecycle.py` cierra y sincroniza el `Pool` (`close()` + `join()`) en un bloque `try...finally` para evitar procesos huérfanos (*zombies*).
+
