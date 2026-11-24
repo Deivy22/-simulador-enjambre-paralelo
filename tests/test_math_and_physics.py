@@ -111,7 +111,6 @@ def test_separation_repels_close_neighbors_and_protects_overlap() -> None:
     expected_fx = (-10.0) * (cfg.separation_radius ** 2 / 100.0)
     assert fx == pytest.approx(expected_fx)
 
-    # Superposición exacta: no debe lanzar ZeroDivisionError ni producir NaN
     overlapping = Boid(x=100.0, y=100.0, vx=-50.0, vy=50.0)
     ox, oy = compute_separation(center, (overlapping,), cfg)
     assert math.isfinite(ox) and math.isfinite(oy)
@@ -234,10 +233,8 @@ def test_update_sequential_moves_boids_preserves_invariants_and_is_deterministic
     next_a = update_sequential(state_a, idle_input, dt=cfg.fixed_dt)
     next_b = update_sequential(state_b, idle_input, dt=cfg.fixed_dt)
 
-    # El estado anterior no se muta
     assert state_a.frame == 0
     assert state_a.boids == snapshot_before
-    # El nuevo estado avanza y es determinista
     assert next_a.frame == 1
     assert next_a.boids == next_b.boids
     assert next_a.boids != snapshot_before
@@ -248,6 +245,5 @@ def test_update_sequential_moves_boids_preserves_invariants_and_is_deterministic
         assert 0.0 <= boid.x <= cfg.world_width
         assert 0.0 <= boid.y <= cfg.world_height
 
-    # Paso puro directo coincide con update_sequential
     direct_boids = step_boids_sequential(state_a.boids, idle_input, cfg, cfg.fixed_dt)
     assert direct_boids == next_a.boids
