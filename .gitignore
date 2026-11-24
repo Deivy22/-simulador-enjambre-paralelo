@@ -22,13 +22,15 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Registro local de commits (no subir al repositorio público)
+# Archivos de planificación interna y registro local (no subir al repositorio público)
+commits_plan.md
+entrega_pdf_plantilla.md
+GUIA_BENCHMARK_COMPANERO.md
 01_asignacion_y_reglas.md
 02_diseno_del_simulador.md
 03_arquitectura.md
 04_estrategia_paralelismo.md
 05_roles_y_sprints.md
 06_prompts_y_commits.md
-commits_plan.md
 screen.png
 screen1.png
