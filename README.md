@@ -52,3 +52,30 @@ Ambos modos (**Secuencial** y **Paralelo**) ejecutan exactamente la misma **Gril
 3. **Fase 3 — Sincronización y Consolidación Inmutable:** `Pool.map` actúa como barrera de sincronización; los segmentos devueltos se consolidan en orden exacto `0..N-1` en una nueva tupla de `Boid` congelados para construir el nuevo `GameState`.
 4. **Cierre Limpio Obligatorio:** Al presionar `ESC`, cerrar la ventana, cambiar de workers (`+`/`-`) o volver a la Pantalla de Inicio (`Backspace` / botón `Menú`), `pool_lifecycle.py` cierra y sincroniza el `Pool` (`close()` + `join()`) en un bloque `try...finally` para evitar procesos huérfanos (*zombies*).
 
+---
+
+## Instalación y Ejecución
+
+### Requisitos
+* Python **3.10+** (probado en Python **3.13.15** en Windows 11).
+
+```powershell
+pip install -r requirements.txt
+```
+
+### Ejecutar el Simulador Interactivo
+```powershell
+python main.py
+```
+
+### Ejecutar Pruebas Unitarias, Equivalencia y Auditoría Funcional (AST)
+```powershell
+python -m pytest -v
+```
+
+### Ejecutar Benchmark Reproducible (1,000 / 3,000 / 5,000 Entidades)
+```powershell
+python -m benchmarks.run_benchmark
+```
+Parámetros opcionales: `--frames 8 --workers 3 --seed 42`.
+
