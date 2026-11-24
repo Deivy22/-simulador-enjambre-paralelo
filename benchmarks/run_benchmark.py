@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 import pickle
 import platform
@@ -176,3 +177,54 @@ def run_full_benchmark(
         fixed_dt=SimConfig().fixed_dt,
         rows=rows,
     )
+
+
+def format_markdown_report(report: BenchmarkReport) -> str:
+    """Formatea el BenchmarkReport en Markdown reproducible listo para documentación."""
+    hw = report.hardware
+    header_lines = (
+        "### Datos Técnicos del Hardware de Prueba",
+        f"- **Procesador (CPU):** `{hw.processor}`",
+        f"- **Sistema Operativo:** `{hw.os_name}`",
+        f"- **Versión de Python:** `{hw.python_version}`",
+        f"- **Núcleos Lógicos Detectados (`os.cpu_count()`):** `{hw.logical_cores}`",
+        f"- **Workers Activos en Modo Paralelo:** `{hw.active_workers}`",
+        f"- **Estrategia de Partición:** {report.partition_strategy}",
+        f"- **Parámetros de Reproducibilidad:** `seed={report.seed}`, `dt={report.fixed_dt:.6f} s (1/60)`",
+        "",
+        "| Cantidad de Entidades | Modo Secuencial (1 Núcleo) | Modo Paralelo "
+        f"({hw.active_workers} Workers) | Mejora / Speedup | IPC `pickle` |",
+        "| :--- | :---: | :---: | :---: | :---: |",
+    )
+    row_lines = tuple(
+        f"| **{row.entity_count:,} entidades** | "
+        f"`{row.seq_fps:.1f} FPS` (`{row.seq_ms:.2f} ms`) | "
+        f"`{row.par_fps:.1f} FPS` (`{row.par_ms:.2f} ms`) | "
+        f"**`{row.speedup:.2f}x`** | "
+        f"`{row.ipc_pickle_ms:.2f} ms` (`{row.ipc_share_pct:.1f}%`, `{row.payload_kb:.0f} KB`) |"
+        for row in report.rows
+    )
+    return "\n".join(header_lines + row_lines)
+
+
+def main() -> None:
+    """CLI protegido para Windows spawn que ejecuta el benchmark formal e imprime Markdown."""
+    parser = argparse.ArgumentParser(
+        description="Benchmark formal headless del Simulador de Enjambre 2D (Secuencial vs Paralelo).",
+    )
+    parser.add_argument("--frames", type=int, default=8, help="Frames medidos por carga (default: 8).")
+    parser.add_argument("--workers", type=int, default=None, help="Workers paralelos (default: cpu_count - 1).")
+    parser.add_argument("--seed", type=int, default=42, help="Semilla determinista (default: 42).")
+    args = parser.parse_args()
+
+    report = run_full_benchmark(
+        loads=DEFAULT_ENTITY_LOADS,
+        workers=args.workers,
+        frames=args.frames,
+        seed=args.seed,
+    )
+    print(format_markdown_report(report))
+
+
+if __name__ == "__main__":
+    main()
