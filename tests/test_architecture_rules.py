@@ -163,3 +163,14 @@ def test_entrypoints_protect_windows_spawn_guard() -> None:
             for stmt in tree.body
         )
         assert has_main_guard, f"Falta guarda if __name__ == '__main__': en {rel_path}"
+
+
+def test_all_functions_in_data_and_core_have_return_type_annotations() -> None:
+    for pkg in ("data", "core"):
+        for path in _iter_python_files(pkg):
+            tree = _parse_module(path)
+            for stmt in tree.body:
+                if isinstance(stmt, ast.FunctionDef):
+                    assert stmt.returns is not None, (
+                        f"Falta anotación de retorno en {stmt.name} ({path.relative_to(PROJECT_ROOT)})"
+                    )
