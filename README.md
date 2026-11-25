@@ -57,11 +57,25 @@ Ambos modos (**Secuencial** y **Paralelo**) ejecutan exactamente la misma **Gril
 ## Instalación y Ejecución
 
 ### Requisitos
-* Python **3.10+** (probado en Python **3.13.15** en Windows 11).
+* Python **3.10+** (probado en Python **3.13.15** en Windows 11). En Windows se recomienda Python 3.13.
 
+En Windows, instala Python 3.13 si aún no está instalado:
 ```powershell
-pip install -r requirements.txt
+winget install -e --id Python.Python.3.13
 ```
+Al terminar, abre una terminal nueva y verifica que esté disponible:
+```powershell
+py -3.13 --version
+```
+
+Desde la carpeta del proyecto, crea y activa un entorno virtual con Python 3.13 e instala las dependencias:
+```powershell
+py -3.13 -m venv .venv313
+.\.venv313\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+El entorno virtual queda en `.venv313/`; para salir de él, ejecuta `deactivate`.
 
 ### Ejecutar el Simulador Interactivo
 ```powershell
